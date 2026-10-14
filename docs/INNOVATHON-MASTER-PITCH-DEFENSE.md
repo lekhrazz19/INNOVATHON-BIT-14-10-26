@@ -50,7 +50,85 @@
 
 ---
 
-## 2. 3-Minute Live Demo Choreography (Winning Script)
+## 2. The 7 Forensic Graph Heuristic Models (Technical Deep-Dive)
+
+TrustLens replaces uninterpretable "black-box" neural scores with **7 deterministic graph heuristics** rooted in empirical criminology and network science. Every heuristic produces a queryable boolean signal ($0$ or $1$) and an associated sub-score backed by verbatim case evidence.
+
+### 2.1 Heuristic Summary Matrix
+
+| # | Heuristic Key | Name | Weight | Mathematical Formulation | Criminological Target | Tactical Meaning |
+|---|---|---|:---:|---|---|---|
+| **1** | `HUB` | **Hub Detection** | **0.25** | $k_i > 2 \cdot \langle k \rangle$<br>*(Degree > 2× network mean)* | **Syndicate Coordinator / Call Center Operator** | Identifies individuals with anomalous direct contacts across victims, mules, and co-accused. |
+| **2** | `BROKER` | **Broker Centrality** | **0.25** | $C_B(v) = \sum_{s \neq v \neq t} \frac{\sigma_{st}(v)}{\sigma_{st}} \in \text{Top } 10\%$ | **Syndicate Bridge / Hawala Operator** | Detects the critical bottleneck bridging disconnected clusters (e.g., procurement ring to money laundering pool). |
+| **3** | `BURST` | **Burst Detection** | **0.15** | $V_{48\text{h}} > 3 \cdot \bar{V}_{7\text{d}}$<br>*(48h volume > 3× 7-day rolling mean)* | **Active Incident Coordination** | Detects intense spikes in telecom or banking traffic immediately prior to the execution of a crime. |
+| **4** | `NEW_CONNECTION` | **New Connection** | **0.15** | $t_{\text{first}} \in [t_{\text{FIR}} - 30\text{d}, \, t_{\text{FIR}}]$<br>*(First seen < 30 days before FIR)* | **Recruited Accomplice / Fresh Mule** | Flags accounts or phone numbers brought into the syndicate just prior to the offense. |
+| **5** | `STAR` | **Star Pattern** | **0.10** | $k_i \ge 5 \;\land\; C_i = \frac{2 e_i}{k_i(k_i - 1)} < 0.3$<br>*(Degree $\ge$ 5 & Clustering < 0.3)* | **Compartmentalized Kingpin** | Uncovers command-and-control structures where subordinates talk to the boss but are forbidden from talking to each other. |
+| **6** | `FADEOUT` | **Fade-Out Detection** | **0.05** | $\Delta V_{14\text{d}} < -0.80 \cdot \bar{V}_{\text{baseline}}$<br>*(Volume drop > 80% pre-FIR)* | **Operational Blackout / SIM Burner** | Spots suspects who suddenly discard active SIM cards or cease comms days before the offense to evade tracking. |
+| **7** | `COMMUNITY` | **Community Membership**| **0.05** | $\max_C Q = \frac{1}{2m}\sum_{ij}\left[A_{ij}-\frac{k_i k_j}{2m}\right]\delta(c_i,c_j) \land \|C\| \ge 3$ | **Organized Syndicate Cell** | Groups suspects into tightly coupled operational clusters using the Louvain modularity algorithm. |
+
+---
+
+### 2.2 Deep-Dive into Each Model
+
+#### 1. Hub Detection (`HUB` — Weight: 0.25)
+* **What it catches**: High-degree nodes maintaining abnormal connectivity.
+* **Why it matters**: In financial fraud and cyber-extortion, call centers and coordinator handsets must route commands to multiple mule account holders simultaneously.
+* **Math**:
+  $$k_i = \sum_{j} A_{ij} \quad \text{Condition: } k_i > 2 \cdot \left( \frac{1}{N}\sum_{m=1}^{N} k_m \right)$$
+* **Evidence Linked**: Call Detail Records (CDR call frequency), UPI transfer fan-out counts.
+
+#### 2. Broker Betweenness Centrality (`BROKER` — Weight: 0.25)
+* **What it catches**: Strategic intermediaries with low degree who control communication flow between separate sub-gangs.
+* **Why it matters**: Kingpins rarely call ground agents. They speak through 1 or 2 "brokers" (cutouts). Degree centrality misses them, but betweenness centrality catches them instantly.
+* **Math**:
+  $$C_B(v) = \sum_{s \neq v \neq t} \frac{\sigma_{st}(v)}{\sigma_{st}}$$
+  Where $\sigma_{st}$ is total shortest paths from node $s$ to $t$, and $\sigma_{st}(v)$ is paths passing through $v$. Nodes in the 90th percentile trigger this flag.
+
+#### 3. Temporal Burst Detection (`BURST` — Weight: 0.15)
+* **What it catches**: Sudden surge in communication volume or money velocity in the 48-hour window before an FIR or incident.
+* **Why it matters**: Professional syndicates operate in mobilization bursts: scouting, coordination, execution, and rapid dispersal.
+* **Math**:
+  $$\text{Ratio} = \frac{\text{Calls}_{[-48\text{h}, 0]}}{\frac{2}{7} \times \text{Calls}_{[-9\text{d}, -2\text{d}]}} \quad \text{Condition: Ratio} > 3.0$$
+
+#### 4. New Connection Influx (`NEW_CONNECTION` — Weight: 0.15)
+* **What it catches**: Links established for the first time within 30 days of the criminal act.
+* **Why it matters**: Established rings recruit fresh, disposable "mules" or SIM providers specifically for an upcoming operation. Stable, long-term familial ties are ignored; sudden fresh connections trigger investigative scrutiny.
+
+#### 5. Star Topology / Compartmentalization (`STAR` — Weight: 0.10)
+* **What it catches**: Strict hub-and-spoke topology with zero or near-zero peer-to-peer lateral connections.
+* **Why it matters**: Classical covert syndicate architecture enforces compartmentalization: ground operatives must not know each other so that if one is arrested, they cannot expose co-conspirators.
+* **Math**: Local clustering coefficient $C_i$:
+  $$C_i = \frac{2 \cdot |\{e_{jk}: v_j, v_k \in N_i, \, e_{jk} \in E\}|}{k_i(k_i - 1)} < 0.3 \quad \land \quad k_i \ge 5$$
+
+#### 6. Operational Fade-Out (`FADEOUT` — Weight: 0.05)
+* **What it catches**: Complete or near-total activity blackout right before an incident.
+* **Why it matters**: Criminals switch to encrypted channels, burn handsets, or maintain radio silence to establish plausible alibis. TrustLens treats abnormal absence of expected communication as an active investigative signal.
+
+#### 7. Louvain Community Modularity (`COMMUNITY` — Weight: 0.05)
+* **What it catches**: Natural clustering of co-conspirators into functional units (e.g., Core Ring vs. Mule Pool vs. Recruiter Network).
+* **Math**: Greedy modularity maximization ($Q$):
+  $$Q = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - \frac{k_i k_j}{2m} \right] \delta(c_i, c_j)$$
+* **Investigative Output**: Partitions suspects into distinct operational clusters without requiring predefined cluster numbers ($k$).
+
+---
+
+### 2.3 Mathematical Priority Score Aggregation
+
+The final investigative ranking score $S \in [0.0, 10.0]$ is computed as:
+
+$$S = 10 \times \left( \frac{\sum_{k \in \mathcal{H}} w_k \cdot f_k}{\sum_{k \in \mathcal{H}} w_k} \right)$$
+
+Where:
+- $\mathcal{H} = \{\text{HUB}, \text{BROKER}, \text{BURST}, \text{NEW\_CONNECTION}, \text{STAR}, \text{FADEOUT}, \text{COMMUNITY}\}$
+- $w_k \in [0, 1]$ is the heuristic weight (default values sum to $1.0$).
+- $f_k \in \{0, 1\}$ indicates whether heuristic $k$ fired for the subject.
+
+#### Human-in-the-Loop Re-weighting:
+Investigators can adjust weights live in the UI (`WhyFlaggedPanel.tsx`). The formula dynamically recomputes the score and maps it instantly to the **Color Psychology Threat Spectrum** ($S \ge 7.0 \rightarrow$ Critical Red; $5.0 \le S < 7.0 \rightarrow$ Elevated Orange; etc.), while saving analyst adjustments to the tamper-evident audit log.
+
+---
+
+## 3. 3-Minute Live Demo Choreography (Winning Script)
 
 | Time | Screen / Action | Verbatim Dialogue |
 | :--- | :--- | :--- |
@@ -62,7 +140,7 @@
 
 ---
 
-## 3. High-Frequency Questions & Answers for Judges
+## 4. High-Frequency Questions & Answers for Judges
 
 ### Category A: Technical & System Architecture
 
@@ -108,7 +186,7 @@
 
 ---
 
-## 4. The HARDEST Questions Judges Can Ask & How to Defend
+## 5. The HARDEST Questions Judges Can Ask & How to Defend
 
 ---
 
@@ -193,7 +271,7 @@
 
 ---
 
-## 5. Quick Reference Mental Cheat-Sheet (Keep This in Mind on Stage)
+## 6. Quick Reference Mental Cheat-Sheet (Keep This in Mind on Stage)
 
 | When Judges Ask About... | Your Instant Reflex Keyword |
 | :--- | :--- |
