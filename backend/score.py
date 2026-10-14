@@ -59,6 +59,14 @@ CONFIG: dict[str, float] = {
 
 ORDER = ["HUB", "BROKER", "BURST", "NEW_CONNECTION", "STAR", "FADEOUT", "COMMUNITY"]
 
+# node types the engine ranks. ORGANIZATION is included so real criminal-network
+# datasets (crimenet.json — 4,504 organisations) score without a schema rewrite.
+RANKABLE_TYPES = {"PERSON", "ORGANIZATION"}
+
+# above this node count betweenness is sampled (Brandes is O(n·m))
+BETWEENNESS_SAMPLE_ABOVE = 1500
+BETWEENNESS_SAMPLES = 500
+
 
 def score_from_heuristics(fired: list[str]) -> float:
     """Same formula as dataset.ts scoreFromHeuristics — keep in sync."""
@@ -76,8 +84,8 @@ def _parse_day(s: str) -> date | None:
 def _projection(
     nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
 ) -> tuple[dict[str, dict], nx.Graph]:
-    """Person-projection graph: PERSON nodes joined by ASSOCIATED_WITH edges."""
-    persons = {n["id"]: n for n in nodes if n.get("type") == "PERSON"}
+    """Rankable-entity projection: RANKABLE_TYPES joined by ASSOCIATED_WITH edges."""
+    persons = {n["id"]: n for n in nodes if n.get("type") in RANKABLE_TYPES}
     g = nx.Graph()
     g.add_nodes_from(sorted(persons))
     for e in edges:
@@ -129,7 +137,11 @@ def score_graph(graph: dict[str, Any]) -> dict[str, Any]:
 
     deg = dict(g.degree())
     mean_deg = sum(deg.values()) / len(deg) if deg else 0.0
-    betweenness = nx.betweenness_centrality(g) if g.number_of_edges() else {n: 0.0 for n in g}
+    betweenness = (
+        nx.betweenness_centrality(g, k=BETWEENNESS_SAMPLES, seed=42)
+        if g.number_of_nodes() > BETWEENNESS_SAMPLE_ABOVE
+        else nx.betweenness_centrality(g)
+    ) if g.number_of_edges() else {n: 0.0 for n in g}
     clust = nx.clustering(g)
 
     # community detection (Louvain), numbered largest-first for stable colours
@@ -211,7 +223,7 @@ def score_graph(graph: dict[str, Any]) -> dict[str, Any]:
 
     out_nodes: list[dict[str, Any]] = []
     for n in nodes:
-        if n.get("type") != "PERSON" or n["id"] not in persons:
+        if n.get("type") not in RANKABLE_TYPES or n["id"] not in persons:
             out_nodes.append(n)
             continue
         pid = n["id"]

@@ -11,7 +11,7 @@ export interface Extraction {
 }
 
 export interface ParsedIngest {
-  kind: 'CDR' | 'TXN' | 'UNKNOWN'
+  kind: 'CDR' | 'TXN' | 'NETWORK' | 'CRIME_LOG' | 'GENERIC' | 'UNKNOWN'
   sourceLabel: string
   rowCount: number
   extractions: Extraction[]
@@ -21,8 +21,9 @@ export interface ParsedIngest {
 
 export const CONFIDENCE_THRESHOLD = 0.6
 
-const PHONE_RE = /^\+?\d[\d ]{8,}$/
-const IMEI_RE = /^\d{2}-\d{6}-\d{6}-\d$/
+const PHONE_RE = /^(\+?91[\s-]?)?[6-9]\d{9}$|^\+?\d[\d\s-]{8,}$/
+const IMEI_RE = /^\d{2}-\d{6}-\d{6}-\d$|^\d{15}$/
+const ACCOUNT_RE = /^\d{9,18}$|^[A-Z]{4}0[A-Z0-9]{6}$/i
 
 /* map known person / account labels back to their canonical fixture ids */
 const NAME_TO_ID = new Map<string, string>()
@@ -44,27 +45,80 @@ function accountId(acc: string): string {
   return NAME_TO_ID.get(acc.toLowerCase()) ?? `ac_ing_${slug(acc)}`
 }
 
+function normKey(k: string): string {
+  return k.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')
+}
+
+function findCol(headers: string[], candidates: string[]): string | undefined {
+  const normMap = new Map<string, string>()
+  for (const h of headers) normMap.set(normKey(h), h)
+
+  for (const cand of candidates) {
+    const direct = normMap.get(cand)
+    if (direct) return direct
+  }
+  for (const [norm, orig] of normMap.entries()) {
+    for (const cand of candidates) {
+      if (norm === cand || norm.startsWith(`${cand}_`) || norm.endsWith(`_${cand}`) || norm.includes(cand)) {
+        return orig
+      }
+    }
+  }
+  return undefined
+}
+
 export function parseCsv(text: string, fileName: string): ParsedIngest {
-  const { data } = Papa.parse<Record<string, string>>(text, {
+  if (!text || !text.trim()) {
+    return { kind: 'UNKNOWN', sourceLabel: fileName, rowCount: 0, extractions: [], nodes: [], edges: [] }
+  }
+
+  const { data } = Papa.parse<Record<string, string>>(text.trim(), {
     header: true,
-    skipEmptyLines: true,
+    skipEmptyLines: 'greedy',
     transformHeader: (h) => h.trim(),
   })
-  const rows = data.filter((r) => Object.keys(r).length > 1)
-  const headers = rows.length ? Object.keys(rows[0]) : []
 
-  if (headers.includes('caller') && headers.includes('callee')) {
-    return parseCdr(rows, fileName)
+  const rows = (data || []).filter((r) => r && typeof r === 'object' && Object.keys(r).length > 0)
+  if (rows.length === 0) {
+    return { kind: 'UNKNOWN', sourceLabel: fileName, rowCount: 0, extractions: [], nodes: [], edges: [] }
   }
-  if (headers.includes('sender_account') && headers.includes('receiver_account')) {
-    return parseTxn(rows, fileName)
+
+  const headers = Object.keys(rows[0])
+
+  // 1. Check for CDR indicators
+  const callerCol = findCol(headers, ['caller', 'calling', 'caller_name', 'caller_number', 'calling_no', 'from', 'source_number', 'ani', 'phone_a'])
+  const calleeCol = findCol(headers, ['callee', 'called', 'callee_name', 'called_number', 'called_no', 'to', 'destination_number', 'dest', 'dnis', 'phone_b'])
+  if (callerCol && calleeCol && callerCol !== calleeCol) {
+    return parseCdr(rows, fileName, callerCol, calleeCol, headers)
   }
-  return { kind: 'UNKNOWN', sourceLabel: fileName, rowCount: rows.length, extractions: [], nodes: [], edges: [] }
+
+  // 2. Check for Transaction indicators
+  const senderCol = findCol(headers, ['sender_account', 'sender', 'from_account', 'payer', 'remitter', 'source_account', 'dr_account', 'sender_acc', 'debit_account'])
+  const receiverCol = findCol(headers, ['receiver_account', 'receiver', 'to_account', 'payee', 'beneficiary', 'target_account', 'cr_account', 'receiver_acc', 'credit_account'])
+  if (senderCol && receiverCol && senderCol !== receiverCol) {
+    return parseTxn(rows, fileName, senderCol, receiverCol, headers)
+  }
+
+  // 3. Check for Network / Meeting / Edge list indicators
+  const sourceCol = findCol(headers, ['source', 'node1', 'person1', 'entity1', 'suspect', 'from', 'actor'])
+  const targetCol = findCol(headers, ['target', 'node2', 'person2', 'entity2', 'associate', 'to', 'recipient'])
+  if (sourceCol && targetCol && sourceCol !== targetCol) {
+    return parseNetwork(rows, fileName, sourceCol, targetCol, headers)
+  }
+
+  // 4. Generic entity discovery fallback
+  return parseGeneric(rows, fileName, headers)
 }
 
 /* ------------------------------------------------------------------ CDR */
 
-function parseCdr(rows: Record<string, string>[], fileName: string): ParsedIngest {
+function parseCdr(
+  rows: Record<string, string>[],
+  fileName: string,
+  callerCol: string,
+  calleeCol: string,
+  headers: string[],
+): ParsedIngest {
   const extractions: Extraction[] = []
   const nodeMap = new Map<string, GraphNode>()
   const pairAgg = new Map<
@@ -72,34 +126,47 @@ function parseCdr(rows: Record<string, string>[], fileName: string): ParsedInges
     { a: string; b: string; count: number; dur: number; first: string; last: string; imei: string }
   >()
 
-  rows.forEach((r, i) => {
-    const callerName = r.caller_name?.trim() || r.caller?.trim() || `Unknown ${i}`
-    const calleeName = r.callee_name?.trim() || r.callee?.trim() || `Unknown ${i}`
-    const ts = (r.timestamp ?? '').slice(0, 10) || '2026-03-01'
-    const dur = Number(r.duration_s ?? 0)
-    const imei = r.imei?.trim() ?? ''
+  const callerNameCol = findCol(headers, ['caller_name', 'source_name', 'from_name'])
+  const calleeNameCol = findCol(headers, ['callee_name', 'dest_name', 'to_name'])
+  const timeCol = findCol(headers, ['timestamp', 'time', 'date', 'call_date', 'datetime'])
+  const durCol = findCol(headers, ['duration_s', 'duration', 'duration_sec', 'dur'])
+  const imeiCol = findCol(headers, ['imei', 'device_id', 'handset'])
+  const towerCol = findCol(headers, ['cell_tower', 'tower', 'location', 'site', 'city'])
 
-    extractions.push(ex(`r${i}-caller`, callerName, 'PERSON', 'ner', 0.72))
-    extractions.push(ex(`r${i}-callee`, calleeName, 'PERSON', 'ner', 0.72))
-    if (r.caller && PHONE_RE.test(r.caller.trim()))
-      extractions.push(ex(`r${i}-cph`, r.caller.trim(), 'PHONE', 'regex', 0.97))
-    if (r.callee && PHONE_RE.test(r.callee.trim()))
-      extractions.push(ex(`r${i}-eph`, r.callee.trim(), 'PHONE', 'regex', 0.97))
+  rows.forEach((r, i) => {
+    const rawCaller = (r[callerCol] || '').trim()
+    const rawCallee = (r[calleeCol] || '').trim()
+    if (!rawCaller && !rawCallee) return
+
+    const callerName = (callerNameCol && r[callerNameCol]?.trim()) || rawCaller || `Caller ${i + 1}`
+    const calleeName = (calleeNameCol && r[calleeNameCol]?.trim()) || rawCallee || `Callee ${i + 1}`
+    const ts = (timeCol && r[timeCol]?.trim().slice(0, 10)) || '2026-03-01'
+    const dur = durCol ? Number(r[durCol] || 0) : 0
+    const imei = (imeiCol && r[imeiCol]?.trim()) || ''
+    const tower = (towerCol && r[towerCol]?.trim()) || ''
+
+    if (callerName) extractions.push(ex(`r${i}-caller`, callerName, 'PERSON', 'ner', 0.72))
+    if (calleeName) extractions.push(ex(`r${i}-callee`, calleeName, 'PERSON', 'ner', 0.72))
+    if (rawCaller && (PHONE_RE.test(rawCaller) || rawCaller !== callerName))
+      extractions.push(ex(`r${i}-cph`, rawCaller, 'PHONE', 'regex', 0.97))
+    if (rawCallee && (PHONE_RE.test(rawCallee) || rawCallee !== calleeName))
+      extractions.push(ex(`r${i}-eph`, rawCallee, 'PHONE', 'regex', 0.97))
     if (imei && IMEI_RE.test(imei)) extractions.push(ex(`r${i}-imei`, imei, 'PHONE', 'regex', 0.98))
-    if (r.cell_tower) extractions.push(ex(`r${i}-loc`, r.cell_tower.trim(), 'LOCATION', 'ner', 0.55))
-    if (r.timestamp) extractions.push(ex(`r${i}-ts`, ts, 'DATE', 'date-parser', 0.99))
+    if (tower) extractions.push(ex(`r${i}-loc`, tower, 'LOCATION', 'ner', 0.65))
+    if (ts) extractions.push(ex(`r${i}-ts`, ts, 'DATE', 'date-parser', 0.99))
 
     const pa = personId(callerName)
     const pb = personId(calleeName)
     ensurePerson(nodeMap, pa, callerName)
     ensurePerson(nodeMap, pb, calleeName)
-    if (r.caller && PHONE_RE.test(r.caller.trim())) {
-      const id = phoneId(r.caller.trim())
-      nodeMap.set(id, { id, type: 'PHONE', label: r.caller.trim(), meta: { owner: pa, imei }, ingested: true })
+
+    if (rawCaller) {
+      const id = phoneId(rawCaller)
+      nodeMap.set(id, { id, type: 'PHONE', label: rawCaller, meta: { owner: pa, imei }, ingested: true })
     }
-    if (r.callee && PHONE_RE.test(r.callee.trim())) {
-      const id = phoneId(r.callee.trim())
-      nodeMap.set(id, { id, type: 'PHONE', label: r.callee.trim(), meta: { owner: pb } })
+    if (rawCallee) {
+      const id = phoneId(rawCallee)
+      nodeMap.set(id, { id, type: 'PHONE', label: rawCallee, meta: { owner: pb }, ingested: true })
     }
 
     const [x, y] = [pa, pb].sort()
@@ -131,8 +198,11 @@ function parseCdr(rows: Record<string, string>[], fileName: string): ParsedInges
     }))
     seq += 1
   }
+
   for (const [id, n] of nodeMap) {
-    if (n.type === 'PHONE') edges.push(edge(`ing_owns_${id}`, String(n.meta?.owner), id, 'OWNS', { weight: 1 }))
+    if (n.type === 'PHONE' && n.meta?.owner) {
+      edges.push(edge(`ing_owns_${id}`, String(n.meta.owner), id, 'OWNS', { weight: 1 }))
+    }
   }
 
   return {
@@ -147,7 +217,13 @@ function parseCdr(rows: Record<string, string>[], fileName: string): ParsedInges
 
 /* ------------------------------------------------------------------ TXN */
 
-function parseTxn(rows: Record<string, string>[], fileName: string): ParsedIngest {
+function parseTxn(
+  rows: Record<string, string>[],
+  fileName: string,
+  senderCol: string,
+  receiverCol: string,
+  headers: string[],
+): ParsedIngest {
   const extractions: Extraction[] = []
   const nodeMap = new Map<string, GraphNode>()
   const pairAgg = new Map<
@@ -155,31 +231,43 @@ function parseTxn(rows: Record<string, string>[], fileName: string): ParsedInges
     { from: string; to: string; count: number; amount: number; first: string; last: string }
   >()
 
+  const senderNameCol = findCol(headers, ['sender_name', 'payer_name', 'remitter_name', 'from_name'])
+  const receiverNameCol = findCol(headers, ['receiver_name', 'payee_name', 'beneficiary_name', 'to_name'])
+  const amountCol = findCol(headers, ['amount', 'txn_amount', 'transaction_amount', 'value', 'inr'])
+  const timeCol = findCol(headers, ['timestamp', 'time', 'date', 'txn_date', 'datetime'])
+
   rows.forEach((r, i) => {
-    const senderName = r.sender_name?.trim() || r.sender_account?.trim() || `Unknown ${i}`
-    const receiverName = r.receiver_name?.trim() || r.receiver_account?.trim() || `Unknown ${i}`
-    const ts = (r.timestamp ?? '').slice(0, 10) || '2026-03-01'
-    const amount = Number(r.amount ?? 0)
+    const rawSender = (r[senderCol] || '').trim()
+    const rawReceiver = (r[receiverCol] || '').trim()
+    if (!rawSender && !rawReceiver) return
+
+    const senderName = (senderNameCol && r[senderNameCol]?.trim()) || rawSender || `Sender ${i + 1}`
+    const receiverName = (receiverNameCol && r[receiverNameCol]?.trim()) || rawReceiver || `Receiver ${i + 1}`
+    const ts = (timeCol && r[timeCol]?.trim().slice(0, 10)) || '2026-03-01'
+    const amount = amountCol ? Number(String(r[amountCol]).replace(/[^0-9.]/g, '') || 0) : 0
 
     extractions.push(ex(`r${i}-sn`, senderName, 'PERSON', 'ner', 0.72))
     extractions.push(ex(`r${i}-rn`, receiverName, 'PERSON', 'ner', 0.72))
-    if (r.sender_account) extractions.push(ex(`r${i}-sa`, r.sender_account.trim(), 'ACCOUNT', 'regex', 0.95))
-    if (r.receiver_account) extractions.push(ex(`r${i}-ra`, r.receiver_account.trim(), 'ACCOUNT', 'regex', 0.95))
-    if (r.timestamp) extractions.push(ex(`r${i}-ts`, ts, 'DATE', 'date-parser', 0.99))
+    if (rawSender && (ACCOUNT_RE.test(rawSender) || rawSender !== senderName))
+      extractions.push(ex(`r${i}-sa`, rawSender, 'ACCOUNT', 'regex', 0.95))
+    if (rawReceiver && (ACCOUNT_RE.test(rawReceiver) || rawReceiver !== receiverName))
+      extractions.push(ex(`r${i}-ra`, rawReceiver, 'ACCOUNT', 'regex', 0.95))
+    if (ts) extractions.push(ex(`r${i}-ts`, ts, 'DATE', 'date-parser', 0.99))
 
     const pf = personId(senderName)
     const pt = personId(receiverName)
     ensurePerson(nodeMap, pf, senderName)
     ensurePerson(nodeMap, pt, receiverName)
-    if (r.sender_account) {
-      const id = accountId(r.sender_account.trim())
+
+    if (rawSender) {
+      const id = accountId(rawSender)
       if (id.startsWith('ac_ing'))
-        nodeMap.set(id, { id, type: 'ACCOUNT', label: r.sender_account.trim(), meta: { owner: pf }, ingested: true })
+        nodeMap.set(id, { id, type: 'ACCOUNT', label: rawSender, meta: { owner: pf }, ingested: true })
     }
-    if (r.receiver_account) {
-      const id = accountId(r.receiver_account.trim())
+    if (rawReceiver) {
+      const id = accountId(rawReceiver)
       if (id.startsWith('ac_ing'))
-        nodeMap.set(id, { id, type: 'ACCOUNT', label: r.receiver_account.trim(), meta: { owner: pt }, ingested: true })
+        nodeMap.set(id, { id, type: 'ACCOUNT', label: rawReceiver, meta: { owner: pt }, ingested: true })
     }
 
     const key = `${pf}|${pt}`
@@ -214,6 +302,129 @@ function parseTxn(rows: Record<string, string>[], fileName: string): ParsedInges
 
   return {
     kind: 'TXN',
+    sourceLabel: fileName,
+    rowCount: rows.length,
+    extractions,
+    nodes: [...nodeMap.values()],
+    edges,
+  }
+}
+
+/* ---------------------------------------------------------------- NETWORK */
+
+function parseNetwork(
+  rows: Record<string, string>[],
+  fileName: string,
+  sourceCol: string,
+  targetCol: string,
+  headers: string[],
+): ParsedIngest {
+  const extractions: Extraction[] = []
+  const nodeMap = new Map<string, GraphNode>()
+  const weightCol = findCol(headers, ['weight', 'strength', 'value', 'count'])
+  const edges: GraphEdge[] = []
+
+  rows.forEach((r, i) => {
+    const src = (r[sourceCol] || '').trim()
+    const tgt = (r[targetCol] || '').trim()
+    if (!src || !tgt) return
+
+    const rawWeight = weightCol ? Number(r[weightCol] || 1) : 1
+    const weight = Math.min(1.0, Math.max(0.1, Number.isFinite(rawWeight) ? rawWeight : 0.5))
+
+    extractions.push(ex(`r${i}-src`, src, 'PERSON', 'ner', 0.8))
+    extractions.push(ex(`r${i}-tgt`, tgt, 'PERSON', 'ner', 0.8))
+
+    const idSrc = personId(src)
+    const idTgt = personId(tgt)
+    ensurePerson(nodeMap, idSrc, src)
+    ensurePerson(nodeMap, idTgt, tgt)
+
+    edges.push(edge(`ing_net_${i}`, idSrc, idTgt, 'ASSOCIATED_WITH', {
+      weight,
+      event_count: Math.round(weight * 5) || 1,
+      first_seen: '2026-03-01',
+      last_seen: '2026-03-15',
+    }))
+  })
+
+  return {
+    kind: 'NETWORK',
+    sourceLabel: fileName,
+    rowCount: rows.length,
+    extractions,
+    nodes: [...nodeMap.values()],
+    edges,
+  }
+}
+
+/* ---------------------------------------------------------------- GENERIC */
+
+function parseGeneric(rows: Record<string, string>[], fileName: string, headers: string[]): ParsedIngest {
+  const extractions: Extraction[] = []
+  const nodeMap = new Map<string, GraphNode>()
+  const edges: GraphEdge[] = []
+
+  // Identify column roles heuristically
+  const nameCols = headers.filter((h) => /name|person|suspect|alias|actor|user|member/i.test(h))
+  const phoneCols = headers.filter((h) => /phone|mobile|contact|cell|number/i.test(h))
+  const locCols = headers.filter((h) => /city|location|state|district|address|tower|place/i.test(h))
+  const dateCols = headers.filter((h) => /date|time|timestamp/i.test(h))
+
+  // Primary label column: first name col, or first non-empty text column
+  const primaryCol = nameCols[0] || headers[0]
+
+  rows.slice(0, 100).forEach((r, i) => {
+    const entitiesInRow: string[] = []
+
+    // Extract primary entity
+    const primaryVal = (r[primaryCol] || '').trim()
+    if (primaryVal && primaryVal.length > 1) {
+      const pid = personId(primaryVal)
+      ensurePerson(nodeMap, pid, primaryVal)
+      extractions.push(ex(`gen-${i}-p`, primaryVal, 'PERSON', 'ner', 0.75))
+      entitiesInRow.push(pid)
+    }
+
+    // Scan all columns for phones, locations, dates
+    for (const h of headers) {
+      const val = (r[h] || '').trim()
+      if (!val) continue
+
+      if (phoneCols.includes(h) || PHONE_RE.test(val)) {
+        extractions.push(ex(`gen-${i}-${h}`, val, 'PHONE', 'regex', 0.95))
+        const phId = phoneId(val)
+        nodeMap.set(phId, { id: phId, type: 'PHONE', label: val, meta: { owner: entitiesInRow[0] }, ingested: true })
+        if (entitiesInRow[0]) {
+          edges.push(edge(`ing_owns_${i}_${h}`, entitiesInRow[0], phId, 'OWNS', { weight: 1 }))
+        }
+      } else if (locCols.includes(h)) {
+        extractions.push(ex(`gen-${i}-${h}`, val, 'LOCATION', 'ner', 0.6))
+      } else if (dateCols.includes(h)) {
+        extractions.push(ex(`gen-${i}-${h}`, val.slice(0, 10), 'DATE', 'date-parser', 0.9))
+      } else if (nameCols.includes(h) && h !== primaryCol && val.length > 1) {
+        const otherPid = personId(val)
+        ensurePerson(nodeMap, otherPid, val)
+        extractions.push(ex(`gen-${i}-${h}`, val, 'PERSON', 'ner', 0.7))
+        entitiesInRow.push(otherPid)
+      }
+    }
+
+    // Create pairwise associations among entities found in the same row
+    for (let j = 0; j < entitiesInRow.length; j++) {
+      for (let k = j + 1; k < entitiesInRow.length; k++) {
+        edges.push(edge(`ing_gen_${i}_${j}_${k}`, entitiesInRow[j], entitiesInRow[k], 'ASSOCIATED_WITH', {
+          weight: 0.5,
+          event_count: 1,
+          first_seen: '2026-03-01',
+          last_seen: '2026-03-15',
+        }))
+      }
+    }
+  })
+
+  return {
+    kind: 'GENERIC',
     sourceLabel: fileName,
     rowCount: rows.length,
     extractions,

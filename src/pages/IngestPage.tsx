@@ -26,19 +26,35 @@ export function IngestPage() {
   const actor = useUiStore((s) => s.actor)
 
   const handleText = useCallback((text: string, name: string) => {
-    const result = parseCsv(text, name)
-    if (result.kind === 'UNKNOWN') {
-      toast.error('Unrecognised CSV schema. Expected a CDR or transaction export.')
-      return
+    try {
+      const result = parseCsv(text, name)
+      if (result.kind === 'UNKNOWN' || (result.nodes.length === 0 && result.extractions.length === 0)) {
+        toast.error('Could not extract any valid records from this file. Expected a CSV with tabular data.')
+        return
+      }
+      setParsed(result)
+      setCommitted(null)
+      toast.success(`Parsed ${result.kind} data: ${result.rowCount} rows, ${result.extractions.length} entities discovered`)
+    } catch (err) {
+      toast.error(`Failed to parse CSV: ${(err as Error).message}`)
     }
-    setParsed(result)
-    setCommitted(null)
   }, [])
 
   const onFile = (file: File) => {
+    if (!file) return
     const reader = new FileReader()
-    reader.onload = () => handleText(String(reader.result), file.name)
-    reader.readAsText(file)
+    reader.onload = () => {
+      const text = String(reader.result || '')
+      if (!text.trim()) {
+        toast.error('The selected file is empty.')
+        return
+      }
+      handleText(text, file.name)
+    }
+    reader.onerror = () => {
+      toast.error('Failed to read file. Please ensure it is a valid text or CSV file.')
+    }
+    reader.readAsText(file, 'UTF-8')
   }
 
   async function commit() {
@@ -64,6 +80,15 @@ export function IngestPage() {
         </p>
 
         <div
+          role="button"
+          tabIndex={0}
+          onClick={() => inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              inputRef.current?.click()
+            }
+          }}
           onDragOver={(e) => {
             e.preventDefault()
             setDragOver(true)
@@ -76,29 +101,37 @@ export function IngestPage() {
             if (f) onFile(f)
           }}
           className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/40 px-6 py-10 text-center transition-colors',
-            dragOver && 'border-primary bg-primary/5',
+            'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/40 px-6 py-10 text-center transition-all hover:border-primary/60 hover:bg-card/70',
+            dragOver && 'border-primary bg-primary/10 scale-[0.99]',
           )}
         >
           <Upload className="h-6 w-6 text-muted-foreground" />
           <div className="text-xs">
-            Drop a <span className="font-mono">.csv</span> export here, or
+            Drop any <span className="font-mono">.csv</span> export here, or
           </div>
-          <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              inputRef.current?.click()
+            }}
+          >
             <FileInput className="h-3.5 w-3.5" />
             Choose file
           </Button>
           <input
             ref={inputRef}
             type="file"
-            accept=".csv,.txt,text/csv"
+            accept=".csv,text/csv,text/plain,application/vnd.ms-excel,application/csv,.tsv,text/tab-separated-values,text/*,*"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0]
               if (f) onFile(f)
+              e.target.value = ''
             }}
           />
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
               or load a sample
             </span>
@@ -106,7 +139,10 @@ export function IngestPage() {
               variant="secondary"
               size="sm"
               className="h-7 gap-1.5 text-[11px]"
-              onClick={() => handleText(cdrSample, 'cdr_sample.csv')}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleText(cdrSample, 'cdr_sample.csv')
+              }}
             >
               <Database className="h-3 w-3" />
               CDR export
@@ -115,7 +151,10 @@ export function IngestPage() {
               variant="secondary"
               size="sm"
               className="h-7 gap-1.5 text-[11px]"
-              onClick={() => handleText(txnSample, 'txn_sample.csv')}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleText(txnSample, 'txn_sample.csv')
+              }}
             >
               <Database className="h-3 w-3" />
               Transaction dump

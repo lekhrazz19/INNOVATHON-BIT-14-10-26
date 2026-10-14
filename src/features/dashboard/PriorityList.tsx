@@ -9,8 +9,13 @@ export function PriorityList({ graph }: { graph: GraphSchema }) {
   const selectEntity = useUiStore((s) => s.selectEntity)
 
   const ranked = graph.nodes
-    .filter((n) => n.type === 'PERSON' && (n.priority_score ?? 0) > 0 && !n.meta?.alias_of)
-    .sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0))
+    .filter((n) => (n.priority_score ?? 0) > 0 && !n.meta?.alias_of)
+    .sort(
+      (a, b) =>
+        (b.priority_score ?? 0) - (a.priority_score ?? 0) ||
+        (b.degree ?? 0) - (a.degree ?? 0) ||
+        a.label.localeCompare(b.label),
+    )
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-card">

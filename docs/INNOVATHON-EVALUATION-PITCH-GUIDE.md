@@ -1,4 +1,4 @@
-# INNOVATHON 2026 — Master Evaluation & Pitch Dossier
+/# INNOVATHON 2026 — Master Evaluation & Pitch Dossier
 ## Red-String: AI-Powered Criminal Network Intelligence System
 **Target Criteria Mapping, Architecture Walkthrough, Live Demo Script & Judge Q&A Defense**
 

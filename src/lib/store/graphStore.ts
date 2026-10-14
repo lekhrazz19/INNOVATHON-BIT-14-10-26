@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import * as api from '@/lib/api'
+import { DATA_SOURCE, fetchRealGraph } from '@/lib/api/real'
 import { rescoreViaBackend, type EngineStat } from '@/lib/api/score'
 import type { GraphSchema } from '@/lib/api/types'
 
@@ -31,7 +32,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   refresh: async () => {
     set({ loading: true, error: null })
     try {
-      const base = await api.getGraph()
+      const base = DATA_SOURCE === 'real' ? await fetchRealGraph() : await api.getGraph()
       set({ graph: base, loading: false })
       await get().runHeuristics()
     } catch (e) {

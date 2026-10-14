@@ -58,3 +58,28 @@ cd backend && python3 score.py
 ```
 
 Asserts formula parity with the fixture and a live end-to-end pass.
+
+## Real data
+
+`convert.py` turns a real dataset into the app's GraphSchema.
+
+```bash
+# 400-node visual slice served to the app
+python3 convert.py --source crimenet --limit 400 --out ../public/real-graph.json
+
+# full graph, for engine evaluation (4,504 orgs / 8,183 ties, ~12 s to score)
+python3 convert.py --source crimenet --out /tmp/full.json
+python3 -c "import json,score; g=json.load(open('/tmp/full.json')); print(len(score.score_graph(g)['nodes']))"
+```
+
+Then run the app with `VITE_DATA=real`:
+
+```bash
+cd .. && cp .env.example .env && sed -i 's/^VITE_DATA=$/VITE_DATA=real/' .env && npm run dev
+```
+
+Sources: `datasets/crimenet/crimenet.json` (4,504 criminal organisations),
+`datasets/criminal-network/mafia_meetings.csv` (95-node meeting network).
+The engine ranks `ORGANIZATION` as well as `PERSON`; crimenet edges carry no
+event timestamps so the temporal heuristics stay inert, and the top band is
+MEDIUM (6.5) — the ceiling without BURST / NEW_CONNECTION / FADEOUT signals.
