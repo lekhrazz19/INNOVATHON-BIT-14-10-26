@@ -1,4 +1,4 @@
-# Red-String
+# TrustLens
 
 **AI-Powered Criminal Network Analysis System**
 
@@ -14,9 +14,9 @@ Law enforcement agencies collect data from multiple sources — CDRs, FIRs, bank
 
 ---
 
-## What Red-String Does
+## What TrustLens Does
 
-Red-String takes fragmented crime data from multiple LEA sources and builds a **time-aware criminal intelligence knowledge graph**. It resolves identities across databases, maps hidden relationships, ranks key individuals, and provides cryptographically verifiable audit trails — all with explainable decisions, not black-box AI.
+TrustLens takes fragmented crime data from multiple LEA sources and builds a **time-aware criminal intelligence knowledge graph**. It resolves identities across databases, maps hidden relationships, ranks key individuals, and provides cryptographically verifiable audit trails — all with explainable decisions, not black-box AI.
 
 ```
 ┌──────────┐    ┌───────────┐    ┌──────────┐    ┌───────┐    ┌────────┐

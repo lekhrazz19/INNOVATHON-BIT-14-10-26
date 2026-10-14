@@ -1,5 +1,5 @@
 """
-red.string — live heuristic scoring engine.
+TrustLens — live heuristic scoring engine.
 
 Computes the 7 investigative heuristics over the person-projection graph,
 mirroring src/lib/fixtures/dataset.ts (HEURISTIC_WEIGHTS / HEURISTIC_META).

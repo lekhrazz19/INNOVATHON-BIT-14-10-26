@@ -1,5 +1,5 @@
 # INNOVATHON Pitch Presentation — 6-Slide Content Design & Copy
-# INNOVATHON · CRIMENET-AI / red.string
+# INNOVATHON · CRIMENET-AI / TrustLens
 
 ## 1. Deliverable & hard constraints
 

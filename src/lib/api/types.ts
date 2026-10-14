@@ -1,5 +1,5 @@
 /**
- * red.string — typed contracts.
+ * TrustLens — typed contracts.
  * Mirrors the 5 team interfaces (RecordSchema, EntityId, GraphSchema+scores,
  * AuditEvent, ReportPayload) so a real FastAPI backend can drop in later.
  */

@@ -22,7 +22,7 @@ export function Sidebar() {
       <div className="flex h-12 items-center gap-2 border-b border-border px-4">
         <KnotGlyph />
         <span className="font-mono text-sm font-semibold tracking-tight">
-          red<span className="text-string">.</span>string
+          trust<span className="text-primary">.</span>lens
         </span>
       </div>
 

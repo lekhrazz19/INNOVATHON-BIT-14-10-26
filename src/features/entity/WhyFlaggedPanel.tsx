@@ -10,7 +10,7 @@ import type { EntityDetail } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const KEYS = Object.keys(HEURISTIC_WEIGHTS) as HeuristicKey[]
-const WEIGHTS_STORAGE_KEY = 'redstring.heuristicWeights'
+const WEIGHTS_STORAGE_KEY = 'trustlens.heuristicWeights'
 
 function loadStoredWeights(): Record<HeuristicKey, number> {
   try {

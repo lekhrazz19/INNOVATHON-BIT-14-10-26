@@ -1,5 +1,5 @@
 """
-red.string — scoring engine API.
+TrustLens — scoring engine API.
 
 Stateless: the client POSTs the graph, gets it back with live analytics.
     GET  /api/health   → engine identity + tunable thresholds
@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from score import CONFIG, HEURISTIC_WEIGHTS, score_graph
 
-app = FastAPI(title="red.string scoring engine", version="1.0")
+app = FastAPI(title="TrustLens scoring engine", version="1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # demo: Vite dev server on a different origin

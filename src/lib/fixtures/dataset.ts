@@ -1,5 +1,5 @@
 /**
- * red.string MVP dataset — small, adversarial, honest.
+ * TrustLens MVP dataset — small, adversarial, honest.
  * Primary scenario: an organized financial-fraud / mule-account network
  * (Bhopal–Indore) threaded through a legitimate business cluster.
  *

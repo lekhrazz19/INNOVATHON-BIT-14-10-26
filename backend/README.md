@@ -1,4 +1,4 @@
-# red.string — scoring engine
+# TrustLens — scoring engine
 
 Live, transparent analytics for the criminal-network graph. Replaces the
 pre-computed values in `src/lib/fixtures/dataset.ts` with a real computation:

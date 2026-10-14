@@ -8,7 +8,7 @@ import { EvidenceRef } from '@/components/evidence/EvidenceRef'
 import { priorityBand } from '@/lib/graph/theme'
 import { formatDate, formatDateTime, formatINR } from '@/lib/utils'
 
-const BASE_TITLE = 'red.string — criminal network intelligence'
+const BASE_TITLE = 'TrustLens — criminal network intelligence'
 const TN = {
   blue: 'var(--tn-blue)',
   cyan: 'var(--tn-cyan)',
@@ -56,7 +56,7 @@ export function ReportPage() {
     if (!payload) return
     const clean = payload.subject.label.replace(/[\\/:*?"<>|]+/g, '').trim()
     const set = () => {
-      document.title = `red.string report — ${clean} — ${payload.case_id}`
+      document.title = `TrustLens report — ${clean} — ${payload.case_id}`
     }
     const restore = () => {
       document.title = BASE_TITLE
@@ -118,7 +118,7 @@ export function ReportPage() {
         >
           <div>
             <div className="font-mono text-base font-semibold tracking-tight">
-              red<span style={{ color: TN.red }}>.</span>string
+              trust<span style={{ color: TN.blue }}>.</span>lens
             </div>
             <h1 className="mt-0.5 text-lg font-semibold">Case Intelligence Report</h1>
             <p className="mt-1 text-[11px] text-muted-foreground">

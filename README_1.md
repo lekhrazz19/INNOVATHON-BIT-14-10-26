@@ -1,10 +1,10 @@
-# red.string
+# TrustLens
 
 **Criminal network intelligence — the investigation UI.**
 
 Prototype for **INNOVATHON · AI-Powered Criminal Network Analysis System** (MHA · NCRB Women Safety
-Division). This is the analyst-facing front end of CRIMENET-AI, rebranded `red.string` — the
-evidence board where entities are nodes and resolved / suspicious connections are the red strings
+Division). This is the analyst-facing front end of CRIMENET-AI, rebranded `TrustLens` — the
+evidence board where entities are nodes and resolved / suspicious connections are mapped
 between them.
 
 Built for LEA officials: dense, functional, keyboard-fast, explainable. Every score on screen

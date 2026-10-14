@@ -1,10 +1,10 @@
-/# INNOVATHON 2026 — Master Evaluation & Pitch Dossier
-## Red-String: AI-Powered Criminal Network Intelligence System
+# INNOVATHON 2026 — Master Evaluation & Pitch Dossier
+## TrustLens: AI-Powered Criminal Network Intelligence System
 **Target Criteria Mapping, Architecture Walkthrough, Live Demo Script & Judge Q&A Defense**
 
 ---
 
-## Executive Scorecard: How Red-String Dominates Every Criterion
+## Executive Scorecard: How TrustLens Dominates Every Criterion
 
 | # | Evaluation Criteria | Our Core Differentiator | Proof / Live Artifact on Screen |
 |---|---|---|---|
@@ -40,22 +40,22 @@
 # SECTION 2: Innovation & Creativity (Criterion 2)
 
 ### 2.1 Innovation #1 — The REFUSE Decision Card (Our #1 Pitch Differentiator)
-*Most entity resolution engines only try to merge things together. Red-String is the first to explicitly compute, justify, and display **REFUSAL**.*
+*Most entity resolution engines only try to merge things together. TrustLens is the first to explicitly compute, justify, and display **REFUSAL**.*
 - **The Problem It Solves**: In India, hundreds of people share common names (e.g., *"Amit Kumar"*, *"Rahul Sharma"*). Naive vector embedding or string similarity algorithms merge them, corrupting criminal profiles.
-- **How Red-String Does It**:
+- **How TrustLens Does It**:
   - The resolution engine evaluates both **Affirmative Signals** (phone match, vehicle sharing, co-location) and **Hard Discriminators** (conflicting fathers' names, incompatible age bands, simultaneous cell tower pings in different cities).
-  - When hard discriminators trip, Red-String emits a **REFUSE card**, explicitly showing the investigator why these two entities must remain separate, locking the decision into the audit trail.
+  - When hard discriminators trip, TrustLens emits a **REFUSE card**, explicitly showing the investigator why these two entities must remain separate, locking the decision into the audit trail.
   - **Demo Moment**: We demonstrate two planted adversarial traps live on screen where the names match 95%+, but the system proudly displays **REFUSE: Conflict in guardian name and residential district**.
 
 ### 2.2 Innovation #2 — Person-to-Person Graph Projection
 - **The Flaw in Traditional Crime Graphs**: In a naive heterogeneous graph, if 50 suspects make phone calls through the same cell tower, or transfer money through the same bank branch, that cell tower or bank node becomes the highest-centrality node in the entire graph. Algorithms mistakenly flag the tower as the "gang mastermind."
-- **Our Innovation**: Red-String projects heterogeneous multi-modal edges into a weighted **Person-Person Network**:
+- **Our Innovation**: TrustLens projects heterogeneous multi-modal edges into a weighted **Person-Person Network**:
   $$W(A, B) = \sum \alpha_i \cdot \text{Interaction}_i(A, B)$$
   Centrality and Louvain community detection run *only* on the person projection. This ensures criminal kingpins and brokers emerge at the top, without graph topology distortion.
 
 ### 2.3 Innovation #3 — Cryptographic SHA-256 Custody Chain
 - **Blockchain Principle without Token Overhead**: Evidence admissibility requires proving that no police officer or analyst manipulated logs post-incident.
-- Red-String implements an in-browser Web Crypto append-only **SHA-256 hash-chain**:
+- TrustLens implements an in-browser Web Crypto append-only **SHA-256 hash-chain**:
   $$\text{Entry}_i = \text{SHA-256}(\text{Entry}_{i-1} \parallel \text{ArtifactHash} \parallel \text{Action} \parallel \text{Actor} \parallel \text{Timestamp})$$
 - A single-click **Tamper button** simulates evidence tampering by mutating one historical byte. Clicking **Verify Chain** instantly turns the interface red, pinning the exact sequence number where data was altered.
 
@@ -104,7 +104,7 @@
 
 ### 3.2 The 7 Suspicious-Pattern Heuristics
 
-Every entity score (0–10) in Red-String is deterministic, queryable, and mathematically explainable:
+Every entity score (0–10) in TrustLens is deterministic, queryable, and mathematically explainable:
 
 ```
 Priority Score = ∑ [ Weight_k × SubScore_k ] × 10
@@ -133,7 +133,7 @@ Priority Score = ∑ [ Weight_k × SubScore_k ] × 10
    - *Catches*: Close-knit syndicate cells and money-laundering clusters.
 
 ### 3.3 Explainability via the Why-Flagged Panel
-Investigators never accept a raw AI score. In Red-String:
+Investigators never accept a raw AI score. In TrustLens:
 - Clicking any node opens the [`EntityPanel`](file:///home/kenshii/INNOVATHON/src/features/entity/EntityPanel.tsx).
 - The [`WhyFlaggedPanel`](file:///home/kenshii/INNOVATHON/src/features/entity/WhyFlaggedPanel.tsx) shows exact sub-scores and interactive weight sliders. If an investigator adjusts weights to focus on financial brokers instead of hubs, the score recomputes dynamically while maintaining evidentiary references.
 
@@ -143,7 +143,7 @@ Investigators never accept a raw AI score. In Red-String:
 
 ### 4.1 Legal & Statutory Compliance (India DPDP Act 2023)
 - **Purpose Limitation**: Data ingestion restricts attributes strictly to investigative relevance.
-- **No Automated Adverse Action**: The system adheres to strict **Human-in-the-Loop** architecture. Red-String ranks entities for investigation; it never automates warrants or accusations.
+- **No Automated Adverse Action**: The system adheres to strict **Human-in-the-Loop** architecture. TrustLens ranks entities for investigation; it never automates warrants or accusations.
 - **Evidentiary Standard (Section 65B Indian Evidence Act)**: Every report generated includes cryptographic hash manifests verifying that printed electronic records match the ingested raw data bit-for-bit.
 
 ### 4.2 Scalability & Benchmark Grounding
@@ -160,13 +160,13 @@ Investigators never accept a raw AI score. In Red-String:
 ### 5.1 The 3-Minute Winning Demo Script
 
 > **[0:00 - 0:30] The Hook & Problem**
-> *"Judges, in 2023, India registered over 5.3 million FIRs. When a financial fraud or cyberstalking ring strikes, investigators are drowning in Excel sheets of phone logs, bank dumps, and police complaints. Connecting the dots takes days, and false matches collapse cases in court. This is Red-String."*
+> *"Judges, in 2023, India registered over 5.3 million FIRs. When a financial fraud or cyberstalking ring strikes, investigators are drowning in Excel sheets of phone logs, bank dumps, and police complaints. Connecting the dots takes days, and false matches collapse cases in court. This is TrustLens."*
 
 > **[0:30 - 1:00] Ingest & Entity Resolution (Show the Refusal Innovation)**
 > *(Navigate to `/ingest` → click 'Transaction dump' → click 'Commit to graph')*
 > *"We ingest raw CDRs and bank dumps. Our regex-first parser extracts hard entities with 100% precision. But here is where existing systems fail: common Indian names."*
 > *(Navigate to `/resolve`)*
-> *"Look at this card: Rahul Sharma in FIR 1024 vs Rahul Sharma in Bhopal. Name similarity is 96%. Traditional AI would merge them. Red-String **REFUSES** the match because father names and local cell towers conflict. We prevent false arrests before they happen."*
+> *"Look at this card: Rahul Sharma in FIR 1024 vs Rahul Sharma in Bhopal. Name similarity is 96%. Traditional AI would merge them. TrustLens **REFUSES** the match because father names and local cell towers conflict. We prevent false arrests before they happen."*
 
 > **[1:00 - 1:45] The Graph & 7 Heuristics**
 > *(Navigate to `/` Dashboard)*
@@ -186,18 +186,18 @@ Investigators never accept a raw AI score. In Red-String:
 
 > **[2:30 - 3:00] Court-Ready Report & Conclusion**
 > *(Click 'Restore' → Navigate to `/report/p_rahul`)*
-> *"With one click, Red-String generates a court-ready intelligence dossier: subject profile, heuristics math, financial transfer flows, timeline, and SHA-256 evidence manifest ready for print."*
-> *"Red-String transforms fragmented crime data into explainable, court-admissible intelligence. Thank you."*
+> *"With one click, TrustLens generates a court-ready intelligence dossier: subject profile, heuristics math, financial transfer flows, timeline, and SHA-256 evidence manifest ready for print."*
+> *"TrustLens transforms fragmented crime data into explainable, court-admissible intelligence. Thank you."*
 
 ---
 
 ### 5.2 Judge Q&A Defense Cheat-Sheet
 
 #### Q1: "How is this different from Palantir or IBM i2 Analyst's Notebook?"
-> **Answer**: *"Palantir and i2 are proprietary, multi-million-dollar suites requiring extensive manual linking, and their black-box scoring cannot be cross-examined under Indian evidence law. Red-String is open-source, tailored to Indian data schemas (CDRs, UPI, VAHAN, FIRs), features explicit **REFUSE cards** for common Indian names, and enforces DPDP Act 2023 compliance with transparent SHA-256 custody chaining."*
+> **Answer**: *"Palantir and i2 are proprietary, multi-million-dollar suites requiring extensive manual linking, and their black-box scoring cannot be cross-examined under Indian evidence law. TrustLens is open-source, tailored to Indian data schemas (CDRs, UPI, VAHAN, FIRs), features explicit **REFUSE cards** for common Indian names, and enforces DPDP Act 2023 compliance with transparent SHA-256 custody chaining."*
 
 #### Q2: "What prevents this AI from making biased or wrongful arrests?"
-> **Answer**: *"Red-String adheres strictly to a **Human-in-the-Loop** model. The 0–10 score is an investigative ranking priority, never a legal determination of guilt. Crucially, our **Refusal engine** acts as an algorithmic safeguard against wrongful attribution by actively hunting for hard discriminators."*
+> **Answer**: *"TrustLens adheres strictly to a **Human-in-the-Loop** model. The 0–10 score is an investigative ranking priority, never a legal determination of guilt. Crucially, our **Refusal engine** acts as an algorithmic safeguard against wrongful attribution by actively hunting for hard discriminators."*
 
 #### Q3: "How does the system handle massive scale with millions of records?"
 > **Answer**: *"We separate heterogeneous storage from network analysis. High-throughput structured data is stored in Neo4j. By projecting the graph into person-to-person relationships before computing centrality and Louvain community partitions, we reduce graph complexity by over 80%, allowing millisecond Cypher query execution via the Neo4j GDS plugin."*
@@ -208,18 +208,17 @@ Investigators never accept a raw AI score. In Red-String:
 #### Q5: "How does this handle regional language FIRs or transliterated names?"
 > **Answer**: *"Our ingestion pipeline incorporates Hindi and regional gazetteers alongside rapidfuzz phonetic matching (Soundex/Metaphone adapted for Indic phonemes). This links variations like 'राहुल शर्मा' and 'R. Sharma' while relying on hard identifiers like phone numbers, bank accounts, and IMEI to prevent false merges."*
 
-#### Q6: "How does Red-String prevent money-mule networks from evading detection through micro-transfers (structuring)?"
-> **Answer**: *"Syndicates split large sums into sub-₹50,000 micro-transfers to avoid automated banking flags. Red-String tracks path topology rather than single-edge thresholds: our 'Money Path' highlight and Star/Broker heuristics trace multi-hop aggregation into central consolidation accounts, regardless of how many intermediate mule hops are used."*
+#### Q6: "How does TrustLens prevent money-mule networks from evading detection through micro-transfers (structuring)?"
+> **Answer**: *"Syndicates split large sums into sub-₹50,000 micro-transfers to avoid automated banking flags. TrustLens tracks path topology rather than single-edge thresholds: our 'Money Path' highlight and Star/Broker heuristics trace multi-hop aggregation into central consolidation accounts, regardless of how many intermediate mule hops are used."*
 
 #### Q7: "What happens if an insider tries to alter records on the server?"
 > **Answer**: *"Every operation (ingestion, identity merge, report export) is appended to the SHA-256 custody chain. If an insider or attacker modifies even a single historical field in the database, the hash chain breaks from that block forward. The 'Verify chain' button recomputes the entire chain live and flags the exact corrupted sequence number immediately."*
 
-#### Q8: "How does Red-String integrate with existing LEA platforms like CCTNS and ICJS?"
-> **Answer**: *"Red-String is designed to be an intelligence layer, not a replacement for record management systems. It consumes standard CSV/JSON exports directly from CCTNS (FIR records), telecom operator CDRs, and NPCI/bank dumps, and can output standardized JSON graph payloads or court-ready PDF dossiers compliant with CCTNS case diary requirements."*
+#### Q8: "How does TrustLens integrate with existing LEA platforms like CCTNS and ICJS?"
+> **Answer**: *"TrustLens is designed to be an intelligence layer, not a replacement for record management systems. It consumes standard CSV/JSON exports directly from CCTNS (FIR records), telecom operator CDRs, and NPCI/bank dumps, and can output standardized JSON graph payloads or court-ready PDF dossiers compliant with CCTNS case diary requirements."*
 
 #### Q9: "Can defense counsel challenge this court-ready report in trial?"
-> **Answer**: *"Defense challenges typically target black-box AI opacity or broken chain-of-custody. Red-String is engineered to withstand cross-examination under Section 65B of the Indian Evidence Act: every score is mathematically decomposed into named heuristics, every connection links to verbatim FIR/CDR text, and every page includes a cryptographic SHA-256 content manifest."*
+> **Answer**: *"Defense challenges typically target black-box AI opacity or broken chain-of-custody. TrustLens is engineered to withstand cross-examination under Section 65B of the Indian Evidence Act: every score is mathematically decomposed into named heuristics, every connection links to verbatim FIR/CDR text, and every page includes a cryptographic SHA-256 content manifest."*
 
 #### Q10: "What is your roadmap for production deployment in a police cyber cell?"
 > **Answer**: *"Phase 1 (current prototype) operates fully self-contained in browser with real-time NetworkX/FastAPI scoring. Phase 2 containerizes the stack into an on-premises Docker Compose deployment connecting to a secured Neo4j instance. Phase 3 incorporates fine-tuned IndicBERT models for automated regional FIR entity extraction within sovereign state police cloud/data centers."*
-

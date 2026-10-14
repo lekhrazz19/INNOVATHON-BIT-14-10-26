@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [refreshGraph, refreshAudit, refreshResolve])
 
   const title =
-    TITLES[pathname] ?? (pathname.startsWith('/report') ? 'Court-ready report' : 'red.string')
+    TITLES[pathname] ?? (pathname.startsWith('/report') ? 'Court-ready report' : 'TrustLens')
 
   return (
     <div className="flex h-full w-full overflow-hidden">
