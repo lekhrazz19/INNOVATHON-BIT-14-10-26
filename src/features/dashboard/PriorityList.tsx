@@ -1,6 +1,6 @@
 import type { GraphSchema } from '@/lib/api/types'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { communityColor, priorityBand } from '@/lib/graph/theme'
+import { priorityBand } from '@/lib/graph/theme'
 import { cn } from '@/lib/utils'
 import { useUiStore } from '@/lib/store/uiStore'
 
@@ -35,22 +35,44 @@ export function PriorityList({ graph }: { graph: GraphSchema }) {
                 type="button"
                 onClick={() => selectEntity(n.id)}
                 className={cn(
-                  'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accent',
+                  'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accent group',
                   selectedEntityId === n.id && 'bg-primary/10',
                 )}
+                title={`${n.label} — ${band.label} Tier (${(n.priority_score ?? 0).toFixed(1)}/10)\n${band.psychology}`}
               >
                 <span className="w-4 shrink-0 font-mono text-[10px] text-muted-foreground">
                   {i + 1}
                 </span>
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: communityColor(n.community) }}
-                />
+                {/* Color psychology identity marker with glowing halo */}
+                <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                  <span
+                    className="absolute inset-0 rounded-full opacity-50 blur-[2px] transition-opacity group-hover:opacity-80"
+                    style={{ background: band.underlayColor }}
+                  />
+                  <span
+                    className="relative h-2 w-2 rounded-full ring-1"
+                    style={{
+                      background: band.color,
+                      borderColor: `${band.color}aa`,
+                      boxShadow: `0 0 6px ${band.color}`,
+                    }}
+                  />
+                </div>
                 <span className="min-w-0 flex-1 truncate text-xs font-medium" title={n.label}>
                   {n.label}
                 </span>
                 <span
-                  className="w-8 shrink-0 text-right font-mono text-xs font-semibold tabular-nums"
+                  className="rounded px-1.5 py-0.5 text-[8px] font-mono font-semibold uppercase tracking-wider shrink-0"
+                  style={{
+                    color: band.color,
+                    background: `${band.color}18`,
+                    border: `1px solid ${band.color}35`,
+                  }}
+                >
+                  {band.label}
+                </span>
+                <span
+                  className="w-7 shrink-0 text-right font-mono text-xs font-semibold tabular-nums"
                   style={{ color: band.color }}
                 >
                   {(n.priority_score ?? 0).toFixed(1)}

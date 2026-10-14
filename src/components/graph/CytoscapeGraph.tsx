@@ -3,7 +3,7 @@ import cytoscape, { type Core, type ElementDefinition } from 'cytoscape'
 import fcose from 'cytoscape-fcose'
 import type { GraphSchema } from '@/lib/api/types'
 import type { GraphView, HighlightMode } from '@/lib/store/uiStore'
-import { communityColor, ENTITY_META, priorityBand } from '@/lib/graph/theme'
+import { THREAT_BANDS, ENTITY_META, priorityBand } from '@/lib/graph/theme'
 import { GraphZoomControls } from './GraphZoomControls'
 
 cytoscape.use(fcose)
@@ -196,6 +196,85 @@ export function CytoscapeGraph({
           cy.animate({ zoom: 1, center: { eles: cy.elements() } }, { duration: 150 })
         }}
       />
+      <ColorPsychologyLegend />
+    </div>
+  )
+}
+
+function ColorPsychologyLegend() {
+  const [expanded, setExpanded] = useState(false)
+  const [activeTier, setActiveTier] = useState<string | null>(null)
+
+  return (
+    <div className="absolute bottom-3 left-3 z-10 select-none font-sans">
+      <div className="rounded-lg border border-border/80 bg-card/95 p-2 shadow-xl backdrop-blur-md transition-all">
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+            </span>
+            <span className="text-[10px] font-semibold tracking-tight text-foreground/90">
+              Risk Spectrum · Color Psychology
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="rounded px-1 text-[9px] font-mono text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            {expanded ? 'compact' : 'details'}
+          </button>
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {THREAT_BANDS.map((b) => (
+            <div
+              key={b.tier}
+              onMouseEnter={() => setActiveTier(b.tier)}
+              onMouseLeave={() => setActiveTier(null)}
+              className="group relative flex cursor-default items-center gap-1.5 rounded border border-border/40 bg-secondary/30 px-1.5 py-0.5 transition-colors hover:border-border"
+            >
+              <div className="relative flex h-2 w-2 items-center justify-center">
+                <span
+                  className="absolute inset-0 rounded-full opacity-60 blur-[1px]"
+                  style={{ background: b.underlayColor }}
+                />
+                <span
+                  className="relative h-1.5 w-1.5 rounded-full"
+                  style={{ background: b.color }}
+                />
+              </div>
+              <span className="font-mono text-[9px] font-medium" style={{ color: b.color }}>
+                {b.label}
+              </span>
+              <span className="font-mono text-[8px] text-muted-foreground">
+                {b.min >= 0 ? `≥${b.min}` : '<1'}
+              </span>
+
+              {/* Hover psychology popover */}
+              {(expanded || activeTier === b.tier) && (
+                <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-56 rounded-md border border-border/80 bg-popover/95 p-2 text-left shadow-2xl backdrop-blur-md z-30">
+                  <div className="flex items-center justify-between border-b border-border/50 pb-1">
+                    <span className="font-mono text-[10px] font-bold" style={{ color: b.color }}>
+                      {b.label} TIER ({b.min >= 0 ? `${b.min}–${b.max}` : '0–1'})
+                    </span>
+                    <span className="text-[8px] font-mono text-muted-foreground uppercase">
+                      Psychology
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-snug text-foreground/90">
+                    {b.psychology}
+                  </p>
+                  <p className="mt-1 text-[9px] text-muted-foreground">
+                    <strong className="text-foreground/80">Action:</strong> {b.tacticalAction}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -218,23 +297,57 @@ function buildElements(graph: GraphSchema, view: GraphView): ElementDefinition[]
     return used.has(n.id) || n.type === 'PERSON'
   })
 
+  // Map to find owner's priority score for non-person nodes
+  const personScoreMap = new Map<string, number>()
+  graph.nodes.forEach((n) => {
+    if (n.type === 'PERSON' && n.priority_score !== undefined) {
+      personScoreMap.set(n.id, n.priority_score)
+    }
+  })
+
   const nodeEls: ElementDefinition[] = nodes.map((n) => {
-    const band = priorityBand(n.priority_score)
+    const rawScore =
+      n.priority_score ??
+      (n.meta?.owner ? personScoreMap.get(String(n.meta.owner)) : undefined) ??
+      0
+    const band = priorityBand(rawScore)
+    const isPerson = n.type === 'PERSON'
+
+    // Node fill color determined directly by risk score for persons; for entities, distinctive categorical color
+    const nodeColor = isPerson ? band.color : ENTITY_META[n.type]?.color ?? '#94a3b8'
+
     return {
       data: {
         id: n.id,
         label: n.label,
         type: n.type,
         community: n.community ?? -1,
-        color:
-          n.type === 'PERSON' ? communityColor(n.community) : ENTITY_META[n.type].color,
-        priority: n.priority_score ?? 0,
-        high: n.priority_score !== undefined && n.priority_score >= 7 ? 1 : 0,
+        color: nodeColor,
+        tier: band.tier,
+        riskScore: rawScore,
+        riskColor: band.color,
+        // Color marked BEHIND every identity: glowing psychology halo/underlay
+        underlayColor: isPerson
+          ? band.underlayColor
+          : rawScore >= 4
+            ? band.underlayColor
+            : 'transparent',
+        underlayOpacity: isPerson
+          ? band.underlayOpacity
+          : rawScore >= 4
+            ? band.underlayOpacity * 0.7
+            : 0,
+        underlayPadding: isPerson
+          ? band.underlayPadding
+          : rawScore >= 4
+            ? band.underlayPadding * 0.6
+            : 0,
+        borderColor: isPerson ? band.color : `${band.color}99`,
+        borderWidth: isPerson ? (rawScore >= 7 ? 2.5 : rawScore >= 4 ? 2 : 1) : 1,
+        priority: rawScore,
+        high: rawScore >= 7 ? 1 : 0,
         band: band.label,
-        size:
-          n.type === 'PERSON'
-            ? 26 + Math.min(28, (n.priority_score ?? 0) * 3)
-            : 16,
+        size: isPerson ? 26 + Math.min(28, rawScore * 3) : 18,
         owner: n.meta?.owner ?? '',
         imei: n.meta?.imei ?? '',
         ingested: n.ingested ? 1 : 0,
@@ -274,27 +387,81 @@ const STYLE: cytoscape.StylesheetJson = [
       'font-family': 'Inter, sans-serif',
       'text-valign': 'bottom',
       'text-margin-y': 3,
-      'text-max-width': '90px',
+      'text-max-width': '95px',
       'text-wrap': 'ellipsis',
-      'border-width': 0,
-      'transition-property': 'opacity, border-width',
-      'transition-duration': 120,
+      'border-width': 'data(borderWidth)',
+      'border-color': 'data(borderColor)',
+      // Radiant color halo marked BEHIND every identity
+      'underlay-color': 'data(underlayColor)',
+      'underlay-opacity': 0.2,
+      'underlay-padding': 4,
+      'underlay-shape': 'ellipse',
+      'transition-property': 'opacity, border-width, underlay-opacity, underlay-padding',
+      'transition-duration': 140,
     },
   },
   {
     selector: 'node[type != "PERSON"]',
-    style: { shape: 'round-rectangle', 'font-size': 7, color: '#a1a1aa' },
+    style: {
+      shape: 'round-rectangle',
+      'font-size': 7,
+      color: '#a1a1aa',
+      'underlay-shape': 'round-rectangle',
+    },
   },
   {
-    // high priority — red halo + bright hairline, reads against any fill
-    selector: 'node[high = 1]',
+    // High-priority targets: distinct luminous red halo
+    selector: 'node[tier = "CRITICAL"]',
     style: {
-      'border-width': 2,
+      'underlay-color': '#dc2626',
+      'underlay-opacity': 0.55,
+      'underlay-padding': 10,
       'border-color': '#fecaca',
-      'underlay-color': '#ef4444',
-      'underlay-opacity': 0.4,
+      'border-width': 2.5,
+    },
+  },
+  {
+    // Elevated active threats: vivid orange alert aura
+    selector: 'node[tier = "ELEVATED"]',
+    style: {
+      'underlay-color': '#ea580c',
+      'underlay-opacity': 0.42,
       'underlay-padding': 8,
-      'underlay-shape': 'ellipse',
+      'border-color': '#fed7aa',
+      'border-width': 2,
+    },
+  },
+  {
+    // Moderate risk: amber cautionary aura
+    selector: 'node[tier = "MODERATE"]',
+    style: {
+      'underlay-color': '#ca8a04',
+      'underlay-opacity': 0.32,
+      'underlay-padding': 6,
+      'border-color': '#fef08a',
+      'border-width': 1.5,
+    },
+  },
+  {
+    // Guarded risk: cool steel-cyan aura
+    selector: 'node[tier = "GUARDED"]',
+    style: {
+      'underlay-color': '#0284c7',
+      'underlay-opacity': 0.22,
+      'underlay-padding': 4,
+      'border-color': '#bae6fd',
+      'border-width': 1,
+    },
+  },
+  {
+    // Benign baseline: calm emerald aura
+    selector: 'node[tier = "BENIGN"]',
+    style: {
+      'underlay-color': '#059669',
+      'underlay-opacity': 0.16,
+      'underlay-padding': 3,
+      'border-color': '#a7f3d0',
+      'border-width': 1,
     },
   },
   {

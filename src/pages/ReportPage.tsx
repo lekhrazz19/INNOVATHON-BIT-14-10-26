@@ -174,8 +174,8 @@ export function ReportPage() {
                   style={{ width: `${payload.ranking_score * 10}%`, background: band.color }}
                 />
               </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                investigative ranking signal — not a probability of guilt
+              <p className="mt-1 text-[10px] text-muted-foreground leading-snug">
+                <strong style={{ color: band.color }}>{band.label} Tier:</strong> {band.psychology.split(',')[0]} · investigative ranking signal (not a probability of guilt).
               </p>
             </div>
           </div>

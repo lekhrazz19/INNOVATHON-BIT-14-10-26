@@ -7,6 +7,7 @@ import { EvidenceRefList } from '@/components/evidence/EvidenceRef'
 import { HEURISTIC_WEIGHTS } from '@/lib/fixtures/dataset'
 import type { GraphNode, HeuristicKey } from '@/lib/api/types'
 import type { EntityDetail } from '@/lib/api'
+import { priorityBand } from '@/lib/graph/theme'
 import { cn } from '@/lib/utils'
 
 const KEYS = Object.keys(HEURISTIC_WEIGHTS) as HeuristicKey[]
@@ -77,28 +78,45 @@ export function WhyFlaggedPanel({
         </p>
       </div>
 
-      <div className="flex items-baseline gap-3">
-        <div>
-          <div className="font-mono text-2xl font-semibold tabular-nums">
-            {adjusted.toFixed(1)}
-            <span className="text-sm text-muted-foreground"> / 10</span>
+      {(() => {
+        const band = priorityBand(adjusted)
+        return (
+          <div className="flex items-baseline gap-3">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-2xl font-bold tabular-nums" style={{ color: band.color }}>
+                  {adjusted.toFixed(1)}
+                </span>
+                <span className="text-sm text-muted-foreground">/ 10</span>
+                <span
+                  className="rounded px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider"
+                  style={{
+                    color: band.color,
+                    background: `${band.color}18`,
+                    border: `1px solid ${band.color}40`,
+                  }}
+                >
+                  {band.label} TIER
+                </span>
+              </div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                {dirty ? `re-weighted (baseline ${baseline.toFixed(1)})` : 'current ranking score'} · {band.psychology.split(',')[0]}
+              </div>
+            </div>
+            {dirty && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto gap-1 text-[11px]"
+                onClick={() => setWeights({ ...HEURISTIC_WEIGHTS })}
+              >
+                <RotateCcw className="h-3 w-3" />
+                reset weights
+              </Button>
+            )}
           </div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {dirty ? `re-weighted (baseline ${baseline.toFixed(1)})` : 'current ranking score'}
-          </div>
-        </div>
-        {dirty && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto gap-1 text-[11px]"
-            onClick={() => setWeights({ ...HEURISTIC_WEIGHTS })}
-          >
-            <RotateCcw className="h-3 w-3" />
-            reset weights
-          </Button>
-        )}
-      </div>
+        )
+      })()}
 
       <div className="space-y-3">
         {fired.map((f) => {

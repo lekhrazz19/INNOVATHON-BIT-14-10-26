@@ -83,6 +83,41 @@ export function EntityPanel() {
               {typeof node.meta?.role === 'string' && (
                 <p className="text-[11px] text-foreground/80">{node.meta.role}</p>
               )}
+
+              {/* Color Psychology Threat Spectrum Banner */}
+              <div
+                className="mt-2.5 flex items-start gap-2.5 rounded-md border p-2.5 text-xs transition-colors"
+                style={{
+                  borderColor: `${band.color}45`,
+                  background: `${band.color}0d`,
+                }}
+              >
+                <div className="relative mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                  <span
+                    className="absolute inset-0 rounded-full opacity-60 blur-[2px]"
+                    style={{ background: band.underlayColor }}
+                  />
+                  <span
+                    className="relative h-2.5 w-2.5 rounded-full"
+                    style={{ background: band.color, boxShadow: `0 0 6px ${band.color}` }}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold tracking-tight" style={{ color: band.color }}>
+                      {band.label} Threat Tier ({node.priority_score?.toFixed(1) ?? '0.0'}/10)
+                    </span>
+                    <span className="font-mono text-[9px] text-muted-foreground uppercase">
+                      Color Psychology
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-foreground/80">{band.psychology}</p>
+                  <div className="flex items-center gap-1.5 pt-0.5 text-[10px] text-muted-foreground">
+                    <span className="font-semibold text-foreground/90">Tactical Action:</span>
+                    <span>{band.tacticalAction}</span>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </SheetHeader>
