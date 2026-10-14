@@ -207,3 +207,19 @@ Investigators never accept a raw AI score. In Red-String:
 
 #### Q5: "How does this handle regional language FIRs or transliterated names?"
 > **Answer**: *"Our ingestion pipeline incorporates Hindi and regional gazetteers alongside rapidfuzz phonetic matching (Soundex/Metaphone adapted for Indic phonemes). This links variations like 'राहुल शर्मा' and 'R. Sharma' while relying on hard identifiers like phone numbers, bank accounts, and IMEI to prevent false merges."*
+
+#### Q6: "How does Red-String prevent money-mule networks from evading detection through micro-transfers (structuring)?"
+> **Answer**: *"Syndicates split large sums into sub-₹50,000 micro-transfers to avoid automated banking flags. Red-String tracks path topology rather than single-edge thresholds: our 'Money Path' highlight and Star/Broker heuristics trace multi-hop aggregation into central consolidation accounts, regardless of how many intermediate mule hops are used."*
+
+#### Q7: "What happens if an insider tries to alter records on the server?"
+> **Answer**: *"Every operation (ingestion, identity merge, report export) is appended to the SHA-256 custody chain. If an insider or attacker modifies even a single historical field in the database, the hash chain breaks from that block forward. The 'Verify chain' button recomputes the entire chain live and flags the exact corrupted sequence number immediately."*
+
+#### Q8: "How does Red-String integrate with existing LEA platforms like CCTNS and ICJS?"
+> **Answer**: *"Red-String is designed to be an intelligence layer, not a replacement for record management systems. It consumes standard CSV/JSON exports directly from CCTNS (FIR records), telecom operator CDRs, and NPCI/bank dumps, and can output standardized JSON graph payloads or court-ready PDF dossiers compliant with CCTNS case diary requirements."*
+
+#### Q9: "Can defense counsel challenge this court-ready report in trial?"
+> **Answer**: *"Defense challenges typically target black-box AI opacity or broken chain-of-custody. Red-String is engineered to withstand cross-examination under Section 65B of the Indian Evidence Act: every score is mathematically decomposed into named heuristics, every connection links to verbatim FIR/CDR text, and every page includes a cryptographic SHA-256 content manifest."*
+
+#### Q10: "What is your roadmap for production deployment in a police cyber cell?"
+> **Answer**: *"Phase 1 (current prototype) operates fully self-contained in browser with real-time NetworkX/FastAPI scoring. Phase 2 containerizes the stack into an on-premises Docker Compose deployment connecting to a secured Neo4j instance. Phase 3 incorporates fine-tuned IndicBERT models for automated regional FIR entity extraction within sovereign state police cloud/data centers."*
+
